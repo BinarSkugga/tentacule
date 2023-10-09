@@ -1,6 +1,7 @@
 import signal
 from multiprocessing import Queue, Process
 from queue import Empty
+from threading import Event
 from typing import Callable
 
 import dill
@@ -18,15 +19,11 @@ class SimpleWorkerProcess(IWorkerProcess):
         self.native_process.start()
 
     def worker_target(self):
-        sigtermd: dict = {'close': False}
+        sigtermd: Event = Event()
+        signal.signal(signal.SIGINT, sigtermd.set)
+        signal.signal(signal.SIGTERM, sigtermd.set)
 
-        def close(*args):
-            sigtermd['close'] = True
-
-        signal.signal(signal.SIGINT, close)
-        signal.signal(signal.SIGTERM, close)
-
-        while not sigtermd['close']:
+        while not sigtermd.is_set():
             try:
                 task_id, task, args, kwargs = self.task_queue.get(timeout=1)
 
@@ -41,6 +38,3 @@ class SimpleWorkerProcess(IWorkerProcess):
             result = e
 
         self.result_queue.put((task_id, result))
-
-    def stop_worker(self, *args):
-        self.sigtermd = True

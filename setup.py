@@ -75,6 +75,5 @@ if __name__ == '__main__':
             # gitlab_install(personal_access_token, *test_requirements)
         else:
             setup(
-                dependency_links=[os.environ['DEPENDENCY_LINK']],
                 install_requires=requirements
             )
