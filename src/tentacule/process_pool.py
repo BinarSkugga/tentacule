@@ -37,7 +37,7 @@ class ProcessPool(IProcessPool):
         self._result_thread.start()
         _ = [p.start() for p in self._pool]
 
-    def close(self, force: bool):
+    def close(self, force: bool = False):
         if force:
             self._stop_pool = True
             _ = [p.native_process.kill() for p in self._pool]
