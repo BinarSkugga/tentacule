@@ -30,34 +30,15 @@ def substituted_config():
             cfg.write(template_cfg)
 
 
-def set_envs(env: str = None, pypi_user: str = None, pypi_password: str = None, pypi_url: str = None):
-    os.environ['ENV'] = env or os.environ.get('ENV', 'develop')
-    os.environ['PYPI_USER'] = pypi_user or os.environ.get('PYPI_USER', 'gitlab-ci-token')
-    os.environ['GITLAB_TOKEN'] = pypi_password or os.environ.get('GITLAB_TOKEN', '')
-    os.environ['PYPI_URL'] = pypi_url or os.environ.get('PYPI_URL', 'gitlab.com/api/v4/projects/23814428/packages/pypi')
-    os.environ['PYPI_DEPLOY_USERNAME'] = os.environ.get('PYPI_DEPLOY_USERNAME', os.environ['PYPI_USER'])
-    os.environ['PYPI_DEPLOY_PASSWORD'] = os.environ.get('PYPI_DEPLOY_PASSWORD', os.environ['GITLAB_TOKEN'])
-    os.environ['DEPENDENCY_LINK'] = f'https://' \
-                                    f'{os.environ["PYPI_DEPLOY_USERNAME"]}:{os.environ["PYPI_DEPLOY_PASSWORD"]}@' \
-                                    f'{os.environ["PYPI_URL"]}/simple'
-
-
 def raw_install(*packages):
     subprocess.run([sys.executable, '-m', 'pip', 'install', '-U', *packages])
     for p in packages:
+        if '=' in p:
+            p = p.split('=')[0]
         globals()[p] = importlib.import_module(p)
 
 
-def gitlab_install(token: str, *requires: str):
-    url = f'https://{os.environ["PYPI_USER"]}:{token}@{os.environ["PYPI_URL"]}/simple'
-    completed_process = subprocess.run(
-        [sys.executable, '-m', 'pip', 'install', '-U', f'--extra-index-url={url}', *requires])
-    if completed_process.returncode != 0:
-        raise RuntimeError('Could not install successfully')
-
-
 if __name__ == '__main__':
-    set_envs()
     raw_install('pip', 'setuptools', 'wheel', 'envsubst', 'pytest', 'nox')
 
     with substituted_config() as (template, substituted):
@@ -71,7 +52,7 @@ if __name__ == '__main__':
             if len(personal_access_token) == 0:
                 personal_access_token = input('Please provide your personal access token: ')
 
-            gitlab_install(personal_access_token, *requirements)
+            raw_install(*requirements)
             # gitlab_install(personal_access_token, *test_requirements)
         else:
             setup(
