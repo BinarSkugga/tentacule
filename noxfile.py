@@ -4,10 +4,7 @@ import sys
 import nox
 from nox import Session
 
-IN_CI = 'GITLAB_CI' in os.environ
-PARALLEL = os.environ.get('TEST_PARALLEL', 'false') == 'true'
 # Only reuse virtualenvs in local testing
-nox.options.reuse_existing_virtualenvs = not IN_CI
 environment = {**os.environ}
 
 
@@ -31,14 +28,4 @@ def tests(session: Session):
 
     session.run(sys.executable, "-m", "pip", "install", "-U", "pip")
     session.run(sys.executable, 'setup.py', 'install', env={**environment, 'PYTHONPATH': os.pathsep.join(sys.path)})
-
-    if PARALLEL:
-        session.install('pytest-xdist')
-        num_proc = os.environ.get('TEST_NUM_PROCESSES', '8')
-        num_proc = int(num_proc) if num_proc != 'auto' else 'auto'
-        session.run('pytest', '--cov-config=.coveragerc', '--dist=loadfile', f'--numprocesses={num_proc}',
-                    '--tx', 'popen//python=python', '--cov=src', '--junitxml=tests/report.xml', 'tests',
-                    env={**environment, 'PYTHONPATH': os.pathsep.join(sys.path)})
-    else:
-        session.run('pytest', 'tests', env={**environment, 'PYTHONPATH': os.pathsep.join(sys.path)})
-
+    session.run('pytest', 'tests', env={**environment, 'PYTHONPATH': os.pathsep.join(sys.path)})

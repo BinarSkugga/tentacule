@@ -48,10 +48,6 @@ if __name__ == '__main__':
         # test_requirements = configs['options']['install_test_requires'].split('\n')[1:]
 
         if len(sys.argv) == 2 and sys.argv[1] == 'install':
-            personal_access_token = os.environ['GITLAB_TOKEN']
-            if len(personal_access_token) == 0:
-                personal_access_token = input('Please provide your personal access token: ')
-
             raw_install(*requirements)
             # gitlab_install(personal_access_token, *test_requirements)
         else:
