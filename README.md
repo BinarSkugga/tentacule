@@ -23,3 +23,7 @@ result = pool.get_result(task_id)  # 5
 
 pool.close()
 ```
+
+## Restrictions
+Anything [dill](https://github.com/uqfoundation/dill) can't pickle, can't be used as a task. 
+Arguments are pickled using the regular pickling for processes.
