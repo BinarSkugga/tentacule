@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from types import GeneratorType
 from typing import Any, Type, Callable
 
 from tentacule.i_worker_process import IWorkerProcess
@@ -28,5 +29,13 @@ class IProcessPool(ABC):
         pass
 
     @abstractmethod
-    def submit_and_fetch(self, task: Callable, *args, timeout: int = 30, **kwargs):
+    def stream(self, task_id: str, timeout: int = 30) -> GeneratorType:
+        pass
+
+    @abstractmethod
+    def submit_and_fetch(self, task: Callable, *args, timeout: int = 30, **kwargs) -> Any:
+        pass
+
+    @abstractmethod
+    def submit_and_stream(self, task: Callable, *args, timeout: int = 30, **kwargs) -> GeneratorType:
         pass

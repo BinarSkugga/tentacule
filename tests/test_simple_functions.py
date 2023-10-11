@@ -46,3 +46,15 @@ def dependency_subtract(a: int, b: int):
 
 def test_function_with_dependency(pool):
     assert pool.submit_and_fetch(dependency_subtract, 7, 2) == 5
+
+
+def generator_function(max: int = 10):
+    for i in range(max):
+        yield i
+
+
+def test_generator_function(pool):
+    expected_val = 0
+    for result in pool.submit_and_stream(generator_function):
+        assert result == expected_val
+        expected_val += 1

@@ -37,6 +37,21 @@ result = pool.submit_and_fetch(task, 5)  # 7
 pool.close()
 ```
 
+It is possible to stream a generator from a process:
+```python
+pool = ProcessPool(workers=3)
+pool.start()
+
+def task(max: int = 10):
+    for i in range(max):
+        yield i
+
+for result in pool.submit_and_stream(task):
+    print(result)  # Will print 0 through 9 inclusively
+
+pool.close()
+```
+
 
 ## Restrictions
 - Anything [dill](https://github.com/uqfoundation/dill) can't pickle, can't be used as a task. 

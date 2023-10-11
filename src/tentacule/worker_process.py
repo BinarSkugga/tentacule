@@ -2,11 +2,17 @@ import signal
 from multiprocessing import Queue, Process
 from queue import Empty
 from threading import Event
+from types import GeneratorType
 from typing import Callable
 
 import dill
 
 from tentacule.i_worker_process import IWorkerProcess
+
+
+# Satellite value to detect the end of a generator
+class GeneratorEnd:
+    pass
 
 
 class SimpleWorkerProcess(IWorkerProcess):
@@ -37,4 +43,11 @@ class SimpleWorkerProcess(IWorkerProcess):
         except Exception as e:
             result = e
 
-        self.result_queue.put((task_id, result))
+        if isinstance(result, GeneratorType):
+            for sub_result in result:
+                self.result_queue.put((task_id, sub_result, True))
+
+            self.result_queue.put((task_id, GeneratorEnd, True))
+            return  # End
+
+        self.result_queue.put((task_id, result, False))

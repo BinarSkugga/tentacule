@@ -1,15 +1,17 @@
 import time
-from multiprocessing import Queue, Event
+from multiprocessing import Queue
 from queue import Empty
 from threading import Thread
+from types import GeneratorType
 from typing import Any, Type, List, Callable, Optional
 
 import dill
 
 from tentacule.i_process_pool import IProcessPool
 from tentacule.i_worker_process import IWorkerProcess
+from tentacule.result_event import ResultEvent
 from tentacule.utils import terminate_process_with_timeout, generate_unique_id
-from tentacule.worker_process import SimpleWorkerProcess
+from tentacule.worker_process import SimpleWorkerProcess, GeneratorEnd
 
 
 class ProcessPool(IProcessPool):
@@ -26,7 +28,6 @@ class ProcessPool(IProcessPool):
 
         self.result_timeout = 15
         self._results = {}
-        self._result_events = {}
         self._result_thread: Optional[Thread] = Thread(target=self._watch_for_result, daemon=True)
 
     def start(self):
@@ -50,21 +51,39 @@ class ProcessPool(IProcessPool):
 
     def submit(self, task: Callable, *args, **kwargs) -> str:
         task_id = generate_unique_id()
+
+        self._results[task_id] = [ResultEvent()]
         self._task_queue.put((task_id, dill.dumps(task), args, kwargs))
-        self._result_events[task_id] = Event()
 
         return task_id
 
     def fetch(self, task_id: str, timeout: int = 30) -> Any:
-        try:
-            self._result_events[task_id].wait(timeout)
-            return self._results[task_id][0]
-        finally:
-            self._result_events.pop(task_id)
+        result = self._results[task_id][-1].result(timeout)
+        return result[0]
 
-    def submit_and_fetch(self, task: Callable, *args, timeout: int = 30, **kwargs):
+    def stream(self, task_id: str, timeout: int = 30) -> GeneratorType:
+        last_idx = 0
+        while True:
+            events = self._results[task_id]
+            next_event = events[last_idx] if last_idx < len(events) else None
+            if next_event is None:
+                time.sleep(.001)
+                continue
+
+            next_result = next_event.result(timeout)[0]
+            if next_result == GeneratorEnd:
+                return
+
+            last_idx += 1
+            yield next_result
+
+    def submit_and_fetch(self, task: Callable, *args, timeout: int = 30, **kwargs) -> Any:
         task_id = self.submit(task, *args, **kwargs)
         return self.fetch(task_id, timeout)
+
+    def submit_and_stream(self, task: Callable, *args, timeout: int = 30, **kwargs) -> GeneratorType:
+        task_id = self.submit(task, *args, **kwargs)
+        return self.stream(task_id, timeout)
 
     def _rebalance(self):
         self._pool = [p for p in self._pool if p.native_process.is_alive()]
@@ -80,15 +99,16 @@ class ProcessPool(IProcessPool):
     def _watch_for_result(self):
         while not self._stop_pool:
             try:
-                task_id, result = self._result_queue.get(timeout=self.result_timeout)
-
-                self._result_events[task_id].set()
-                self._results[task_id] = (result, time.monotonic())
+                task_id, result, is_generator = self._result_queue.get(timeout=self.result_timeout)
+                self._results[task_id][-1].set_result((result, time.monotonic()))
 
                 self._rebalance()
                 self._results = {
                     k: v for k, v in self._results.items()
-                    if time.monotonic() - v[1] < self.result_timeout
+                    if not v[-1].is_set() or time.monotonic() - v[-1]._result[1] < self.result_timeout
                 }
+
+                if is_generator:
+                    self._results[task_id].append(ResultEvent())
             except Empty:
                 pass  # It's okay if the queue was empty, just retry to get
