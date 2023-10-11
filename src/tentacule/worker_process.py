@@ -26,8 +26,8 @@ class SimpleWorkerProcess(IWorkerProcess):
 
     def worker_target(self):
         sigtermd: Event = Event()
-        signal.signal(signal.SIGINT, sigtermd.set)
-        signal.signal(signal.SIGTERM, sigtermd.set)
+        signal.signal(signal.SIGINT, lambda *args: sigtermd.set())
+        signal.signal(signal.SIGTERM, lambda *args: sigtermd.set())
 
         while not sigtermd.is_set():
             try:

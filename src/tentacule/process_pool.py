@@ -14,6 +14,9 @@ from tentacule.utils import terminate_process_with_timeout, generate_unique_id
 from tentacule.worker_process import SimpleWorkerProcess, GeneratorEnd
 
 
+STOP_ID = '__STOP__'
+
+
 class ProcessPool(IProcessPool):
     def __init__(self, workers: int, worker_class: Type[IWorkerProcess] = SimpleWorkerProcess):
         self.workers = workers
@@ -41,13 +44,14 @@ class ProcessPool(IProcessPool):
 
     def close(self, force: bool = False):
         if force:
-            self._stop_pool = True
             _ = [p.native_process.kill() for p in self._pool]
-            self._result_thread.join()
-            return
+        else:
+            for process in self._pool:
+                terminate_process_with_timeout(process.native_process, self.terminate_timeout)
 
-        for process in self._pool:
-            terminate_process_with_timeout(process.native_process, self.terminate_timeout)
+        self._result_queue.put((STOP_ID, None, False))  # Prevents having to wait the result_timeout when we shutdown
+        self._stop_pool = True
+        self._result_thread.join()
 
     def submit(self, task: Callable, *args, **kwargs) -> str:
         task_id = generate_unique_id()
@@ -100,6 +104,9 @@ class ProcessPool(IProcessPool):
         while not self._stop_pool:
             try:
                 task_id, result, is_generator = self._result_queue.get(timeout=self.result_timeout)
+                if task_id == STOP_ID:
+                    break
+
                 self._results[task_id][-1].set_result((result, time.monotonic()))
 
                 self._rebalance()

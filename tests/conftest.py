@@ -10,4 +10,4 @@ def pool():
         pool.start()
         yield pool
     finally:
-        pool.close()
+        pool.close(True)
