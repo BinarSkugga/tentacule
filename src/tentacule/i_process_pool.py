@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Type, Callable
 
-from i_worker_process import IWorkerProcess
+from tentacule.i_worker_process import IWorkerProcess
 
 
 class IProcessPool(ABC):

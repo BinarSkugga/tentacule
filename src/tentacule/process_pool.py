@@ -1,15 +1,15 @@
 import time
-from multiprocessing import Queue
+from multiprocessing import Queue, Event
+from queue import Empty
 from threading import Thread
-from time import sleep
 from typing import Any, Type, List, Callable, Optional
 
 import dill
 
-from i_process_pool import IProcessPool
-from i_worker_process import IWorkerProcess
-from utils import terminate_process_with_timeout, generate_unique_id
-from worker_process import SimpleWorkerProcess
+from tentacule.i_process_pool import IProcessPool
+from tentacule.i_worker_process import IWorkerProcess
+from tentacule.utils import terminate_process_with_timeout, generate_unique_id
+from tentacule.worker_process import SimpleWorkerProcess
 
 
 class ProcessPool(IProcessPool):
@@ -24,8 +24,9 @@ class ProcessPool(IProcessPool):
         self._task_queue = Queue()
         self._result_queue = Queue()
 
-        self.result_timeout = 30
+        self.result_timeout = 15
         self._results = {}
+        self._result_events = {}
         self._result_thread: Optional[Thread] = Thread(target=self._watch_for_result, daemon=True)
 
     def start(self):
@@ -50,17 +51,16 @@ class ProcessPool(IProcessPool):
     def new_task(self, task: Callable, *args, **kwargs) -> str:
         task_id = generate_unique_id()
         self._task_queue.put((task_id, dill.dumps(task), args, kwargs))
+        self._result_events[task_id] = Event()
 
         return task_id
 
     def get_result(self, task_id: str, timeout: int = 30) -> Any:
-        t = time.monotonic()
-        while time.monotonic() - t < timeout:
-            try:
-                result, t = self._results[task_id]
-                return result
-            except KeyError:
-                sleep(.1)
+        try:
+            self._result_events[task_id].wait(timeout)
+            return self._results[task_id][0]
+        finally:
+            self._result_events.pop(task_id)
 
     def _rebalance(self):
         self._pool = [p for p in self._pool if p.native_process.is_alive()]
@@ -75,11 +75,16 @@ class ProcessPool(IProcessPool):
 
     def _watch_for_result(self):
         while not self._stop_pool:
-            task_id, result = self._result_queue.get(timeout=self.result_timeout)
-            self._results[task_id] = (result, time.monotonic())
+            try:
+                task_id, result = self._result_queue.get(timeout=self.result_timeout)
 
-            self._rebalance()
-            self._results = {
-                k: v for k, v in self._results.items()
-                if time.monotonic() - v[1] < self.result_timeout
-            }
+                self._result_events[task_id].set()
+                self._results[task_id] = (result, time.monotonic())
+
+                self._rebalance()
+                self._results = {
+                    k: v for k, v in self._results.items()
+                    if time.monotonic() - v[1] < self.result_timeout
+                }
+            except Empty:
+                pass  # It's okay if the queue was empty, just retry to get

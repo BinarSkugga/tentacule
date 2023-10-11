@@ -6,7 +6,7 @@ from typing import Callable
 
 import dill
 
-from i_worker_process import IWorkerProcess
+from tentacule.i_worker_process import IWorkerProcess
 
 
 class SimpleWorkerProcess(IWorkerProcess):
