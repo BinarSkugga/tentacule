@@ -20,9 +20,13 @@ class IProcessPool(ABC):
         pass
 
     @abstractmethod
-    def new_task(self, task: Callable, *args, **kwargs) -> str:
+    def submit(self, task: Callable, *args, **kwargs) -> str:
         pass
 
     @abstractmethod
-    def get_result(self, task_id: str, timeout: int = 30) -> Any:
+    def fetch(self, task_id: str, timeout: int = 30) -> Any:
+        pass
+
+    @abstractmethod
+    def submit_and_fetch(self, task: Callable, *args, timeout: int = 30, **kwargs):
         pass

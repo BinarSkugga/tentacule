@@ -6,9 +6,7 @@ def simple_function():
 
 
 def test_simple_function(pool):
-    task_id = pool.new_task(simple_function)
-
-    assert pool.get_result(task_id) == 5
+    assert pool.submit_and_fetch(simple_function) == 5
 
 
 def add(a: int, b: int):
@@ -16,15 +14,11 @@ def add(a: int, b: int):
 
 
 def test_simple_function_with_args(pool):
-    task_id = pool.new_task(add, 6, 7)
-
-    assert pool.get_result(task_id) == 13
+    assert pool.submit_and_fetch(add, 6, 7) == 13
 
 
 def test_simple_function_with_kwargs(pool):
-    task_id = pool.new_task(add, a=5, b=5)
-
-    assert pool.get_result(task_id) == 10
+    assert pool.submit_and_fetch(add, a=5, b=5) == 10
 
 
 def default_a(a: int = 0):
@@ -32,11 +26,8 @@ def default_a(a: int = 0):
 
 
 def test_simple_function_with_default(pool):
-    task_id = pool.new_task(default_a)
-    assert pool.get_result(task_id) == 0
-
-    task_id = pool.new_task(default_a, 80)
-    assert pool.get_result(task_id) == 80
+    assert pool.submit_and_fetch(default_a) == 0
+    assert pool.submit_and_fetch(default_a, 80) == 80
 
 
 def recurse(a: int = 0):
@@ -46,8 +37,7 @@ def recurse(a: int = 0):
 
 
 def test_recursive(pool):
-    task_id = pool.new_task(recurse)
-    assert pool.get_result(task_id) == 10
+    assert pool.submit_and_fetch(recurse) == 10
 
 
 def dependency_subtract(a: int, b: int):
@@ -55,5 +45,4 @@ def dependency_subtract(a: int, b: int):
 
 
 def test_function_with_dependency(pool):
-    task_id = pool.new_task(dependency_subtract, 7, 2)
-    assert pool.get_result(task_id) == 5
+    assert pool.submit_and_fetch(dependency_subtract, 7, 2) == 5

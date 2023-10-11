@@ -48,19 +48,23 @@ class ProcessPool(IProcessPool):
         for process in self._pool:
             terminate_process_with_timeout(process.native_process, self.terminate_timeout)
 
-    def new_task(self, task: Callable, *args, **kwargs) -> str:
+    def submit(self, task: Callable, *args, **kwargs) -> str:
         task_id = generate_unique_id()
         self._task_queue.put((task_id, dill.dumps(task), args, kwargs))
         self._result_events[task_id] = Event()
 
         return task_id
 
-    def get_result(self, task_id: str, timeout: int = 30) -> Any:
+    def fetch(self, task_id: str, timeout: int = 30) -> Any:
         try:
             self._result_events[task_id].wait(timeout)
             return self._results[task_id][0]
         finally:
             self._result_events.pop(task_id)
+
+    def submit_and_fetch(self, task: Callable, *args, timeout: int = 30, **kwargs):
+        task_id = self.submit(task, *args, **kwargs)
+        return self.fetch(task_id, timeout)
 
     def _rebalance(self):
         self._pool = [p for p in self._pool if p.native_process.is_alive()]

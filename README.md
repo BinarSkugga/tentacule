@@ -18,11 +18,25 @@ pool.start()
 def task(arg: int):
     return 2 + arg
 
-task_id = pool.new_task(task, 3)
-result = pool.get_result(task_id)  # 5
+task_id = pool.submit(task, 3)
+result = pool.fetch(task_id)  # 5
 
 pool.close()
 ```
+
+You can also do this in a single step:
+```python
+pool = ProcessPool(workers=3)
+pool.start()
+
+def task(arg: int):
+    return 2 + arg
+
+result = pool.submit_and_fetch(task, 5)  # 7
+
+pool.close()
+```
+
 
 ## Restrictions
 - Anything [dill](https://github.com/uqfoundation/dill) can't pickle, can't be used as a task. 
