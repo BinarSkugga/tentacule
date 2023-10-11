@@ -58,3 +58,5 @@ def test_generator_function(pool):
     for result in pool.submit_and_stream(generator_function):
         assert result == expected_val
         expected_val += 1
+
+    assert expected_val == 10
