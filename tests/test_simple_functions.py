@@ -60,3 +60,11 @@ def test_generator_function(pool):
         expected_val += 1
 
     assert expected_val == 10
+
+
+def no_return():
+    pass
+
+
+def test_no_return_function(pool):
+    assert pool.submit_and_fetch(no_return) is None
